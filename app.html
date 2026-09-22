@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GiftLoop - the idea you had in March is gone by December</title>
+<style>
+  :root { --bg:#16121a; --panel:#1d1826; --line:#342b45; --text:#f4f1fa; --dim:#a296ba; --accent:#c99bf5; --risk:#ff8f7a; --soon:#ffcf7a; --good:#8be0a4; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:26px 14px 44px; }
+  h1 { font-size:30px; }
+  .sub { color:var(--dim); margin:6px 0 18px; font-size:14px; text-align:center; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:16px 18px; width:min(640px, 94vw); margin-bottom:14px; }
+  .card h2 { font-size:15px; margin-bottom:10px; }
+  .row { display:flex; gap:10px; align-items:end; flex-wrap:wrap; }
+  input, select { background:#120e18; border:1px solid var(--line); border-radius:8px; color:var(--text); padding:8px 10px; font-size:13px; }
+  label { color:var(--dim); font-size:11px; display:block; margin-bottom:4px; }
+  button { background:var(--accent); color:#16121a; border:none; border-radius:8px; padding:9px 16px; font-size:13px; font-weight:700; cursor:pointer; }
+  .upcoming { display:flex; gap:8px; flex-wrap:wrap; }
+  .up { background:#120e18; border:1px solid var(--line); border-radius:10px; padding:8px 12px; font-size:13px; }
+  .up b { color:var(--accent); }
+  .person { background:#120e18; border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin-top:8px; }
+  .person .top { display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+  .person .nm { font-weight:700; font-size:15px; }
+  .person .bd { color:var(--dim); font-size:12px; }
+  .idea { border-top:1px solid var(--line); padding:8px 0 4px; margin-top:8px; font-size:14px; }
+  .idea .stars { color:var(--soon); font-size:12px; margin-right:6px; }
+  .risk { color:var(--risk); font-size:12px; margin-top:3px; }
+  .past { color:var(--dim); font-size:13px; margin-top:8px; line-height:1.7; }
+  .past b { color:var(--text); font-weight:600; }
+  .mini { display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; }
+  .mini button { padding:6px 12px; font-size:12px; background:#2a2138; color:var(--text); }
+  .mini button:hover { background:var(--accent); color:#16121a; }
+  .del { background:none; border:none; color:var(--dim); cursor:pointer; font-size:12px; padding:0; }
+  .del:hover { color:var(--risk); }
+  .empty { color:var(--dim); text-align:center; padding:10px 0; font-size:14px; }
+  .foot { margin-top:14px; color:var(--dim); font-size:13px; }
+  a { color:var(--accent); text-decoration:none; }
+</style>
+</head>
+<body>
+<h1>GiftLoop</h1>
+<div class="sub">gift ideas strike all year and evaporate by the holidays. catch them, rate them, never repeat a gift.</div>
+
+<div class="card">
+  <h2>Coming up</h2>
+  <div class="upcoming" id="upcoming"><div class="empty">Add people below.</div></div>
+</div>
+
+<div class="card">
+  <h2>Add a person</h2>
+  <div class="row">
+    <div><label>Name</label><input id="p-name" placeholder="e.g. Noa"></div>
+    <div><label>Birthday (optional)</label><input id="p-bday" type="date"></div>
+    <button id="add-person">Add</button>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Your people</h2>
+  <div id="people"></div>
+</div>
+
+<div class="foot"><a href="index.html">&larr; about</a></div>
+
+<script src="engine.js?v=1"></script>
+<script>
+(function () {
+  var KEY = 'giftloop-v1';
+  var people = []; // {id, name, month, day, ideas:[{text,rating,added}], past:[text]}
+
+  function todayISO() {
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(people)); } catch (e) {} }
+  function load() {
+    try { var s = JSON.parse(localStorage.getItem(KEY)); if (Array.isArray(s)) people = s; } catch (e) {}
+  }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  function findPerson(id) { return people.filter(function (p) { return p.id === id; })[0]; }
+
+  var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  function renderUpcoming() {
+    var el = document.getElementById('upcoming');
+    var u = GiftLoop.upcoming(people, todayISO()).slice(0, 4);
+    if (!u.length) { el.innerHTML = '<div class="empty">Add people below.</div>'; return; }
+    el.innerHTML = '';
+    u.forEach(function (x) {
+      var d = document.createElement('div');
+      d.className = 'up';
+      d.innerHTML = '<b>' + esc(x.person.name) + '</b> - ' + MONTHS[x.person.month - 1] + ' ' + x.person.day +
+        (x.daysAway === 0 ? ' <b>today!</b>' : ' in ' + x.daysAway + 'd');
+      el.appendChild(d);
+    });
+  }
+
+  function renderPeople() {
+    var el = document.getElementById('people');
+    if (!people.length) { el.innerHTML = '<div class="empty">No one here yet.</div>'; return; }
+    el.innerHTML = '';
+    people.forEach(function (p) {
+      var div = document.createElement('div');
+      div.className = 'person';
+      var bd = p.month ? MONTHS[p.month - 1] + ' ' + p.day : 'no birthday set';
+      var html = '<div class="top"><span class="nm">' + esc(p.name) + '</span><span class="bd">' + bd + '</span></div>';
+      var ranked = GiftLoop.rankIdeas(p.ideas || []);
+      ranked.forEach(function (idea, i) {
+        var risks = GiftLoop.repeatRisk(idea.text, p.past || []);
+        html += '<div class="idea"><span class="stars">' + '&#9733;'.repeat(idea.rating) + '</span>' + esc(idea.text) +
+          ' <button class="del" data-person="' + p.id + '" data-idea="' + i + '">drop</button>' +
+          (risks.length ? '<div class="risk">repeat risk: you already gave "' + esc(risks[0].gift) + '"</div>' : '') +
+          '</div>';
+      });
+      if (p.past && p.past.length) html += '<div class="past">already gave: <b>' + p.past.map(esc).join(', ') + '</b></div>';
+      html += '<div class="mini">' +
+        '<input placeholder="new idea" data-newidea="' + p.id + '" style="flex:1;min-width:120px">' +
+        '<select data-rating="' + p.id + '"><option>5</option><option>4</option><option>3</option><option>2</option><option>1</option></select>' +
+        '<button data-addidea="' + p.id + '">save idea</button>' +
+        '<button data-gave="' + p.id + '">log a gift you gave</button>' +
+        '<button class="del" data-delperson="' + p.id + '">remove person</button></div>';
+      div.innerHTML = html;
+      el.appendChild(div);
+    });
+    el.querySelectorAll('[data-addidea]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var p = findPerson(b.getAttribute('data-addidea'));
+        var inp = el.querySelector('[data-newidea="' + p.id + '"]');
+        var text = inp.value.trim();
+        if (!text) return;
+        p.ideas = p.ideas || [];
+        p.ideas.push({ text: text, rating: +el.querySelector('[data-rating="' + p.id + '"]').value, added: todayISO() });
+        save(); renderAll();
+      });
+    });
+    el.querySelectorAll('[data-gave]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var p = findPerson(b.getAttribute('data-gave'));
+        var inp = el.querySelector('[data-newidea="' + p.id + '"]');
+        var text = inp.value.trim();
+        if (!text) return;
+        p.past = p.past || [];
+        p.past.push(text);
+        save(); renderAll();
+      });
+    });
+    el.querySelectorAll('[data-idea]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var p = findPerson(b.getAttribute('data-person'));
+        p.ideas = GiftLoop.rankIdeas(p.ideas);
+        p.ideas.splice(+b.getAttribute('data-idea'), 1);
+        save(); renderAll();
+      });
+    });
+    el.querySelectorAll('[data-delperson]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        people = people.filter(function (p) { return p.id !== b.getAttribute('data-delperson'); });
+        save(); renderAll();
+      });
+    });
+  }
+
+  function renderAll() { renderUpcoming(); renderPeople(); }
+
+  document.getElementById('add-person').addEventListener('click', function () {
+    var name = document.getElementById('p-name').value.trim();
+    if (!name) return;
+    var bd = document.getElementById('p-bday').value;
+    var parts = bd ? bd.split('-') : null;
+    people.push({ id: 'p' + Date.now(), name: name, month: parts ? +parts[1] : null, day: parts ? +parts[2] : null, ideas: [], past: [] });
+    document.getElementById('p-name').value = '';
+    document.getElementById('p-bday').value = '';
+    save(); renderAll();
+  });
+
+  // test hook
+  window.__gl = {
+    clear: function () { people = []; save(); renderAll(); },
+    addPerson: function (name, month, day) {
+      people.push({ id: 'p' + Math.random(), name: name, month: month, day: day, ideas: [], past: [] });
+      save(); renderAll();
+    },
+    addIdea: function (name, text, rating) {
+      var p = people.filter(function (x) { return x.name === name; })[0];
+      p.ideas.push({ text: text, rating: rating, added: todayISO() });
+      save(); renderAll();
+    },
+    gave: function (name, gift) {
+      var p = people.filter(function (x) { return x.name === name; })[0];
+      p.past.push(gift);
+      save(); renderAll();
+    },
+    read: function () {
+      return {
+        upcoming: Array.prototype.map.call(document.querySelectorAll('#upcoming .up'), function (d) { return d.textContent; }),
+        ideas: Array.prototype.map.call(document.querySelectorAll('#people .idea'), function (d) { return d.textContent; }),
+        risks: Array.prototype.map.call(document.querySelectorAll('#people .risk'), function (d) { return d.textContent; })
+      };
+    }
+  };
+
+  load();
+  renderAll();
+})();
+</script>
+</body>
+</html>
